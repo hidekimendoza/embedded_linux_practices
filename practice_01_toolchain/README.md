@@ -47,7 +47,7 @@ especially when it comes to compiling a mainline Linux kernel.
 It is probable that, in the next year or so, Clang will be able to compile all the
 components needed for embedded Linux and so will become an alternative to GNU.
 "
-# Toolchain requirements}
+# Toolchain requirements
 1. CPU architecture
 2. Big- or little-endian operation
 3. Floating point support
