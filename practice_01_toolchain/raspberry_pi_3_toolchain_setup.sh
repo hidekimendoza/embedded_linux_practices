@@ -6,7 +6,6 @@
 #    Coreutils-8.1
 #    Glibc-2.11
 #    ncurses5
-
 #    Diffutils-3.0
 #    Findutils-4.4.0
 #    Gawk-3.1
@@ -44,26 +43,26 @@ function get_version(){
   local app_version
   case ${app} in
   "bash")
-    app_version=$(bash --version | head -n1 | cut -d" " -f2-4)
+    app_version=$(bash --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
     ;;
   "binutils")
-    app_version=$(ld --version | head -n1 | cut -d" " -f3-)
+    app_version=$(ld --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
     ;;
   "bzip")
-    app_version=$(bzip2 --version 2>&1 < /dev/null | head -n1 | cut -d" " -f1,6-)
+    app_version=$(bzip2 --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
     ;;
   "coreutils")
-    app_version=$(chown --version | head -n1 | cut -d")" -f2)
+    app_version=$(chown --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
     ;;
   "glibc")
     app_version=$(ldd "$(which "${SHELL}")" | grep libc.so | cut -d ' ' -f 3 \
-  	  | "${SHELL}" | head -n 1 | cut -d ' ' -f 1-10)
+      | "${SHELL}" | head -n 1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
     ;;
   "ncurses")
     app_version=$(echo "#include <ncurses.h>" | gcc -E - > /dev/null)
     ;;
   *)
-    app_version=$(${app} --version | head -n1)
+    app_version=$(${app} --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
   esac
   echo "${app_version}"
 }
