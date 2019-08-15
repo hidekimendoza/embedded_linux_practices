@@ -22,7 +22,22 @@
 
 function is_installed(){
   local tool="$1"
-
+ case ${tool} in
+  "binutils")
+    tool='ld'
+    ;;
+  "coreutils")
+    tool='chown'
+    ;;
+  "glibc")
+    #TODO
+    return 0
+    ;;
+  "ncurses")
+    #TODO
+    return 0
+    ;;
+  esac  
   hash "${tool}" 2>/dev/null
   return $?
 }
@@ -43,26 +58,26 @@ function get_version(){
   local app_version
   case ${app} in
   "bash")
-    app_version=$(bash --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+    app_version=$(bash --version | head -n1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
     ;;
   "binutils")
-    app_version=$(ld --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+    app_version=$(ld --version | head -n1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
     ;;
-  "bzip")
-    app_version=$(bzip2 --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+  "bzip2")
+    app_version=$( bzip2 --version 2>&1 | head -n1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
     ;;
   "coreutils")
-    app_version=$(chown --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+    app_version=$(chown --version | head -n1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
     ;;
   "glibc")
     app_version=$(ldd "$(which "${SHELL}")" | grep libc.so | cut -d ' ' -f 3 \
-      | "${SHELL}" | head -n 1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+      | "${SHELL}" | head -n 1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
     ;;
   "ncurses")
     app_version=$(echo "#include <ncurses.h>" | gcc -E - > /dev/null)
     ;;
   *)
-    app_version=$(${app} --version | head -n1 | sed -n 's/.*\(\b[0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/p')
+    app_version=$(${app} --version | head -n1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
   esac
   echo "${app_version}"
 }
@@ -73,15 +88,16 @@ function manage_version_installed(){
 
   if is_installed "${util_name}"; then
     current_version=$(get_version "${util_name}")
+    echo "${util_name} current version: ${current_version}" 
     if evaluate_corresponding_version "${current_version}" "${expected_version}" ; then
-      echo "${util_name} tool installed"
       return 0
     else
-      echo "${util_name} tool need upgrade"
+      echo "${util_name} need upgrade current version is: ${current_version} \
+and expected is ${expected_version}" >&2 
       return 1
     fi
   else
-    echo "${util_name} tool is not installed"
+    echo "${util_name} tool is not installed" >&2
     return 2
   fi
 }
@@ -116,11 +132,21 @@ declare -A standard_tools=(
 ['sed']="4.2.1"
 ['sudo']="1.7.4p4"
 )
-
+tool_missing=false
 for tool in "${!standard_tools[@]}"; do
   expected_version=${standard_tools[$tool]}
 
-  echo "Checking util ${tool}"
-  manage_version_installed "${tool}" "${expected_version}"
+  # echo "Checking util ${tool}"
+  if manage_version_installed "${tool}" "${expected_version}"; then
+    tool_missing=true
+  fi
 done
+
+if ! $tool_missing; then
+  echo 'All tools are installed'
+  exit 0
+else
+  echo 'Tools need to be installed' >&2
+  exit 1
+fi
 
