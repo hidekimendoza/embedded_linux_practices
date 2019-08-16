@@ -26,18 +26,19 @@ function is_installed(){
   "binutils")
     tool='ld'
     ;;
+  "texinfo")
+    tool='chown'
+    ;;
   "coreutils")
     tool='chown'
     ;;
   "glibc")
-    #TODO
     return 0
     ;;
   "ncurses")
-    #TODO
     return 0
     ;;
-  esac  
+  esac
   hash "${tool}" 2>/dev/null
   return $?
 }
@@ -75,6 +76,9 @@ function get_version(){
     ;;
   "ncurses")
     app_version=$(echo "#include <ncurses.h>" | gcc -E - > /dev/null)
+    if ! [[ ! "${$?}" ]] ;then
+      app_version=5
+    fi
     ;;
   *)
     app_version=$(${app} --version | head -n1 | sed -n 's/.*\s\([1-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
@@ -88,12 +92,11 @@ function manage_version_installed(){
 
   if is_installed "${util_name}"; then
     current_version=$(get_version "${util_name}")
-    echo "${util_name} current version: ${current_version}" 
     if evaluate_corresponding_version "${current_version}" "${expected_version}" ; then
       return 0
     else
       echo "${util_name} need upgrade current version is: ${current_version} \
-and expected is ${expected_version}" >&2 
+and expected is ${expected_version}" >&2
       return 1
     fi
   else
@@ -135,18 +138,16 @@ declare -A standard_tools=(
 tool_missing=false
 for tool in "${!standard_tools[@]}"; do
   expected_version=${standard_tools[$tool]}
-
-  # echo "Checking util ${tool}"
-  if manage_version_installed "${tool}" "${expected_version}"; then
+  manage_version_installed "${tool}" "${expected_version}"
+  if [[ $? != 0 ]] ; then
     tool_missing=true
   fi
 done
 
-if ! $tool_missing; then
+if [[ "${tool_missing}" == "false" ]] ; then
   echo 'All tools are installed'
   exit 0
 else
   echo 'Tools need to be installed' >&2
   exit 1
 fi
-
