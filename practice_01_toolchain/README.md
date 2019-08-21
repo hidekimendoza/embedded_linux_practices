@@ -85,6 +85,15 @@ may be installed subsequently
 Chris Simmond: "So, which to choose? My advice is to use uClibc-ng only if you are using uClinux.
 If you have very limited amount of storage or RAM, then musl libc is a good choice, otherwise, use glibc"
 
+# Structure
+
+    lib: Contains the shared objects for the C library and the dynamic linker/loader, ld-linux
+    usr/lib, the static library archive files for the C library, and any other libraries that may be installed subsequently
+    usr/include: Contains the headers for all the libraries
+    usr/bin: Contains the utility programs that run on the target, such as the ldd command
+    use/share: Used for localization and internationalization
+    sbin: Provides the ldconfig utility, used to optimize library loading paths
+
 # References
 Chris Simmond, Mastering Embedded Linux Programming - Second Edition [2017]. Packt Publishing
 
