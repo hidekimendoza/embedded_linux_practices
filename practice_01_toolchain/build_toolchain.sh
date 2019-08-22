@@ -5,6 +5,7 @@
 # umask 022
 
 CLFS=/opt/clfs
+CLFS_SRC_DIR="${CLFS}/sources"
 LC_ALL=POSIX
 # PATH=${CLFS}/cross-tools/bin:/bin:/usr/bin
 # export CLFS LC_ALL PATH
@@ -39,13 +40,27 @@ fi
 # armv7-r 	armv7-m
 CLFS_ARM_ARCH='armv8-a'
 
+function get_tool_src_dir(){
+  local util="$1"
+  local directory="$2"
+  local util_directory
+
+  util_directory=$( find "${directory} "-maxdepth 1 -name "${util}"  -type d )
+  if [[ -n "${util_directory=}"  ]]; then
+    # echo "${util_directory##*/}"
+    echo "${util_directory}"
+    return 0
+  fi
+  return 1
+}
+
 function download_tools(){
 # Download tools
-  if [[ ! -d sources  ]]; then
-    mkdir "${CLFS}/sources"
+  if [[ ! -d  "${CLFS_SRC_DIR}" ]]; then
+    mkdir "${CLFS_SRC_DIR}"
   fi
 
-  cd "${CLFS}/sources" || return
+  cd "${CLFS_SRC_DIR}" || return 1
 
   wget http://ftp.gnu.org/gnu/binutils/binutils-2.32.tar.xz
   tar -xf binutils-2.32.tar.xz && rm binutils-2.32.tar.xz
@@ -56,8 +71,17 @@ function download_tools(){
   wget https://gcc.gnu.org/pub/gcc/releases/gcc-8.3.0/gcc-8.3.0.tar.xz
   tar -xf gcc-8.3.0.tar.xz && rm gcc-8.3.0.tar.xz
 
+  wget https://ftp.gnu.org/gnu/mpc/mpc-1.0.3.tar.gz
+  tar -xf mpc-1.0.3.tar.gz && rm mpc-1.0.3.tar.gz
+  ln -sf mpc-1.0.3 gcc-8.3.0/mpc
+
+  wget https://ftp.gnu.org/gnu/mpfr/mpfr-4.0.2.tar.xz
+  tar -xf mpfr-4.0.2.tar.xz && rm mpfr-4.0.2.tar.xz
+  ln -sf mpfr-4.0.2 gcc-8.3.0/mpfr
+
   wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.lz
   tar -xf gmp-6.1.2.tar.lz && rm gmp-6.1.2.tar.lz
+  ln -sf gmp-6 gcc-8.3.0/gmp
 
   wget http://sethwklein.net/iana-etc-2.30.tar.bz2
   tar -xf iana-etc-2.30.tar.bz2 && rm iana-etc-2.30.tar.bz2
@@ -68,20 +92,21 @@ function download_tools(){
   wget https://mirrors.edge.kernel.org/pub/linux/kernel/v4.x/linux-4.19.tar.xz
   tar -xf linux-4.19.tar.xz && rm linux-4.19.tar.xz
 
-  wget https://ftp.gnu.org/gnu/mpc/mpc-1.0.3.tar.gz
-  tar -xf mpc-1.0.3.tar.gz && rm mpc-1.0.3.tar.gz
-
-  wget https://ftp.gnu.org/gnu/mpfr/mpfr-4.0.2.tar.xz
-  tar -xf mpfr-4.0.2.tar.xz && rm mpfr-4.0.2.tar.xz
-
-  wget http://www.musl-libc.org/releases/musl-1.1.23.tar.gz
+ wget http://www.musl-libc.org/releases/musl-1.1.23.tar.gz
   tar -xf musl-1.1.23.tar.gz && rm musl-1.1.23.tar.gz
 
-  cd - || return
+  cd - || return 1
 }
 
 function install_sanitized_headers(){
-  cd "${CLFS}/sources/linux-4.19" || return 1
+  local linux_kernel_source_dir
+
+  linux_kernel_source_dir=$( get_tool_src_dir "linux" "${CLFS_SRC_DIR}" )
+  if [[ -z "${linux_kernel_source_dir}" ]];then
+    return 1
+  fi
+
+  cd "${linux_kernel_source_dir}" || return 1
   make mrproper
   make ARCH=${CLFS_ARCH} headers_check
   make ARCH=${CLFS_ARCH} INSTALL_HDR_PATH=${CLFS}/cross-tools/${CLFS_TARGET} headers_install
@@ -95,9 +120,16 @@ function install_sanitized_headers(){
 
 function install_binutils(){
   local configure_step
+  local binutils_source_dir
+
+  binutils_source_dir=$( get_tool_src_dir "binutils" "${CLFS_SRC_DIR}" )
+  if [[ -z "${binutils_source_dir}" ]];then
+    return 1
+  fi
+
   mkdir  "${CLFS}/binutils-build"
   cd "${CLFS}/binutils-build" || return 1
-  configure_step=$( "${CLFS}/sources/binutils-2.32/configure \
+  configure_step=$( "${binutils_source_dir}/configure \
    --prefix=${CLFS}/cross-tools \
    --target=${CLFS_TARGET} \
    --with-sysroot=${CLFS}/cross-tools/${CLFS_TARGET} \
@@ -115,6 +147,15 @@ function install_binutils(){
 
 function install_gcc_first_step(){
   local configure_step
+  local gcc_source_files
+
+  mkdir "${CLFS}/gcc-build"
+  cd "${CLFS}/gcc-build" || return 1
+  gcc_source_files=$( get_tool_src_dir "gcc" "${CLFS_SRC_DIR}" )
+  if [[ -z "${gcc_source_files}" ]];then
+    return 1
+  fi
+
   mkdir "${CLFS}/gcc-build"
   cd "${CLFS}/gcc-build" || return 1
   configure_step=$( ${CLFS}/sources/gcc-6.2.0/configure \
@@ -136,8 +177,8 @@ function install_gcc_first_step(){
   --disable-threads \
   --enable-languages=c \
   --disable-multilib \
-  --with-mpfr-include=$(pwd)/../gcc-6.2.0/mpfr/src \
-  --with-mpfr-lib=$(pwd)/mpfr/src/.libs \
+  --with-mpfr-include="${gcc_source_files}/mpfr/src" \
+  --with-mpfr-lib="${CLFS}/gcc-build/src/.libs" \
   --with-arch=${CLFS_ARM_ARCH} \
   --with-float=${CLFS_FLOAT} \
   --with-fpu=${CLFS_FPU} )
@@ -148,20 +189,33 @@ function install_gcc_first_step(){
 
 function compile_libc_musl(){
   local configure_step
+  local musl_source_dir
 
-  configure_step=$( "${CLFS}/sources/musl-1.1.23/configure \
+  musl_source_dir=$( get_tool_src_dir "musl" "${CLFS_SRC_DIR}" )
+  if [[ -z "${musl_source_dir}" ]];then
+    return 1
+  fi
+
+  configure_step=$( "${musl_source_dir}/configure \
   CROSS_COMPILE=${CLFS_TARGET}- \
   --prefix=/ \
   --target=${CLFS_TARGET}" )
   make
   DESTDIR=${CLFS}/cross-tools/${CLFS_TARGET} make install
 }
-
+${CLFS}/gcc-build
 function install_gcc_second_step(){
   local configure_step
+  local gcc_source_files
+
   mkdir "${CLFS}/gcc-build"
   cd "${CLFS}/gcc-build" || return 1
-  configure_step=$( ${CLFS}/sources/gcc-6.2.0/configure \
+  gcc_source_files=$( get_tool_src_dir "gcc" "${CLFS_SRC_DIR}" )
+  if [[ -z "${gcc_source_files}" ]];then
+    return 1
+  fi
+
+  configure_step=$( ${gcc_source_files}/configure \
   --prefix=${CLFS}/cross-tools \
   --build=${CLFS_HOST} \
   --host=${CLFS_HOST} \
@@ -173,8 +227,8 @@ function install_gcc_second_step(){
   --enable-long-long \
   --disable-libmudflap \
   --disable-multilib \
-  --with-mpfr-include=$(pwd)/../gcc-6.2.0/mpfr/src \
-  --with-mpfr-lib=$(pwd)/mpfr/src/.libs \
+  --with-mpfr-include="${gcc_source_files}/mpfr/src" \
+  --with-mpfr-lib="${CLFS}/gcc-build/src/.libs" \
   --with-arch=${CLFS_ARM_ARCH} \
   --with-float=${CLFS_FLOAT} \
   --with-fpu=${CLFS_FPU})
@@ -187,6 +241,7 @@ download_tools
 mkdir -p ${CLFS}/cross-tools/${CLFS_TARGET}
 
 ln -sf . ${CLFS}/cross-tools/${CLFS_TARGET}/usr
+
 install_sanitized_headers
 install_binutils
 install_gcc_first_step
