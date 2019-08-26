@@ -123,6 +123,7 @@ declare -A standard_tools=(
 ['find']="4.4.0"
 ['gawk']="3.1"
 ['gcc']="4.4"
+['g++']="4.4"
 ['glibc']="2.11"
 ['grep']="2.6"
 ['gzip']="1.3"
