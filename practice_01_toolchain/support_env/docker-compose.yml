@@ -1,0 +1,13 @@
+version: '3.3'
+services:
+        crosscompile:
+                image: tools_embedded
+                build: .
+                privileged: true
+                volumes:
+                        - type: bind
+                          source: ./workspace
+                          target: /usr/src/workspace
+                entrypoint: /bin/bash
+                stdin_open: true
+                tty: true
