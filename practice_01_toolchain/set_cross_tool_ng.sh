@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Based on http://crosstool-ng.github.io/docs/build/
-VERSION="1.9.3"
+VERSION="1.24.0"
 
 function install_ct_ng(){
 
@@ -37,19 +37,19 @@ function install_ct_ng(){
   
   cd crosstool-ng-"${VERSION}" || exit 1 
   
-  ./configure --local
-#   make
-#   
-#   if ! ./ct-ng help ;then
-#     echo "ct-ng was not successfully installed"
-#     exit 1
-#   fi
-#   
+  ./configure --enable-local
+   make
+  
+   if ! ./ct-ng --help ;then
+     echo "ct-ng was not successfully installed"
+     exit 1
+   fi
+   
 #   ./configure --prefix=/usr
 #   make
 #   make DESTDIR=/packaging/place install
-# 
-#   ct-ng menuconfig
+ 
+   ./ct-ng menuconfig
 }
 
 install_ct_ng
